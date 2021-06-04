@@ -1,0 +1,5 @@
+[package]
+name = "splay_tree"
+version = "0.1.0"
+authors = ["jlikhuva <jlikhuva@alumni.stanford.edu>"]
+edition = "2018"
