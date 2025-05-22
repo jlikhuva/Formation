@@ -175,7 +175,7 @@ pub struct SplayTree<K: Ord, V> {
 
 /// Implementation of Read operations. These procedures
 /// do not lead to structural changes in the tree
-impl<K: Ord + Default + Clone, V: Default> SplayTree<K, V> {
+impl<K: Ord + Default + Clone + std::fmt::Debug, V: Default> SplayTree<K, V> { // Added K: std::fmt::Debug
     /// Create a new, empty SplayTree tree
     ///
     /// # Example
@@ -399,7 +399,7 @@ impl<K: Ord + Default + Clone, V: Default> SplayTree<K, V> {
 
 /// Implementation of Write operations. These procedures
 /// do lead to structural changes in the tree
-impl<K: Ord + Clone, V: Clone> SplayTree<K, V> {
+impl<K: Ord + Clone + std::fmt::Debug, V: Clone> SplayTree<K, V> { // Added K: std::fmt::Debug
     /// Adds a new entry into the splay tree in amortized O(lg n) time.
     /// If the key already exists, its value is updated.
     /// The newly inserted or updated node is splayed to the root.
@@ -437,7 +437,7 @@ impl<K: Ord + Clone, V: Clone> SplayTree<K, V> {
         let mut current_idx = self.root.unwrap();
         // parent_idx_for_search_phase will hold the parent of current_idx during search,
         // or the node itself if the key is found, or the parent for a new node.
-        let mut parent_idx_for_search_phase = current_idx; 
+        let mut parent_idx_for_search_phase: SplayNodeIdx; 
 
         // Phase 1: Find insertion point or existing node.
         // This loop only reads node structure for navigation.
@@ -676,33 +676,59 @@ impl<K: Ord, V> SplayTree<K, V> {
 
 
 /// Implementation of the bottom up splay operation
-impl<K: Ord, V> SplayTree<K, V> {
+impl<K: Ord + std::fmt::Debug, V> SplayTree<K, V> { // Added K: std::fmt::Debug
     /// Moves the target node to the root of the tree using a series of rotations.
-    fn splay(&mut self, target: SplayNodeIdx) {
+    fn splay(&mut self, target: SplayNodeIdx) { 
         if self.elements.is_none() { return; }
         let elements_ref_check = self.elements.as_ref().unwrap();
         if elements_ref_check.is_empty() { return; } 
+
+        // Check if target is valid
+        if target.0 >= elements_ref_check.len() {
+            eprintln!("[SPLAY] Error: Target index {:?} out of bounds.", target);
+            return;
+        }
         
-        // Check if target is valid and if it has a parent
-        // target.0 must be a valid index into elements_ref_check
-        if target.0 >= elements_ref_check.len() || elements_ref_check[target].parent.is_none() {
+        { // Logging scope for initial state
+            let nodes_for_log = self.elements.as_ref().unwrap();
+            eprintln!("[SPLAY] Starting splay for target: NodeIdx({}), Key({:?})", target.0, nodes_for_log[target].key());
+        }
+
+        // Check if target has a parent (i.e., not already root)
+        if elements_ref_check[target].parent.is_none() {
             // Target is root or invalid, no splay needed or possible.
             // If target is valid and has no parent, it should be the root.
-            if target.0 < elements_ref_check.len() && elements_ref_check[target].parent.is_none() {
-                 self.root = Some(target); 
+            self.root = Some(target);
+            { // Logging scope
+                let nodes_for_log = self.elements.as_ref().unwrap();
+                eprintln!("[SPLAY] Target NodeIdx({}), Key({:?}) is already root or has no parent. Splay not needed.", target.0, nodes_for_log[target].key());
             }
             return;
         }
 
-
         while self.elements.as_ref().unwrap()[target].parent.is_some() {
             let parent_idx = self.elements.as_ref().unwrap()[target].parent.unwrap();
             let grand_parent_idx_opt = self.elements.as_ref().unwrap()[parent_idx].parent;
-
             let target_is_left_child_of_parent = self.elements.as_ref().unwrap()[parent_idx].left == Some(target);
+
+            { // Logging scope for pre-rotation state
+                let nodes_for_log = self.elements.as_ref().unwrap();
+                let target_key = nodes_for_log[target].key();
+                let parent_key = nodes_for_log[parent_idx].key();
+                if let Some(gp_idx) = grand_parent_idx_opt {
+                    let gp_key = nodes_for_log[gp_idx].key();
+                    eprintln!("[SPLAY] Pre-rotation: Target: {:?}({:?}), Parent: {:?}({:?}), Grandparent: {:?}({:?})", 
+                              target.0, target_key, parent_idx.0, parent_key, gp_idx.0, gp_key);
+                } else {
+                    eprintln!("[SPLAY] Pre-rotation: Target: {:?}({:?}), Parent: {:?}({:?}), No Grandparent (Parent is root)", 
+                              target.0, target_key, parent_idx.0, parent_key);
+                }
+            }
 
             if grand_parent_idx_opt.is_none() { // Parent is root: Zig case
                 let nodes = self.elements.as_mut().unwrap();
+                let op_type = if target_is_left_child_of_parent { "Zig (L)" } else { "Zig (R)" };
+                eprintln!("[SPLAY] Target: {:?}, Op: {}, Rotate around P_Key: {:?}", nodes[target].key(), op_type, nodes[parent_idx].key());
                 if target_is_left_child_of_parent {
                     Self::rotate_right(nodes, parent_idx);
                 } else {
@@ -715,76 +741,131 @@ impl<K: Ord, V> SplayTree<K, V> {
 
                 if parent_is_left_child_of_grandparent { // Parent is Left Child
                     if target_is_left_child_of_parent { // Target is Left Child: ZigZig (Left-Left)
+                        eprintln!("[SPLAY] Target: {:?}, Op: ZigZig L-L, RotateRight G_Key: {:?}, then RotateRight P_Key: {:?}", nodes[target].key(), nodes[grand_parent_idx].key(), nodes[parent_idx].key());
                         Self::rotate_right(nodes, grand_parent_idx);
                         Self::rotate_right(nodes, parent_idx);
                     } else { // Target is Right Child: ZigZag (Left-Right)
+                        eprintln!("[SPLAY] Target: {:?}, Op: ZigZag L-R, RotateLeft P_Key: {:?}, then RotateRight G_Key: {:?}", nodes[target].key(), nodes[parent_idx].key(), nodes[grand_parent_idx].key());
                         Self::rotate_left(nodes, parent_idx);
                         Self::rotate_right(nodes, grand_parent_idx);
                     }
                 } else { // Parent is Right Child
                     if target_is_left_child_of_parent { // Target is Left Child: ZigZag (Right-Left)
+                        eprintln!("[SPLAY] Target: {:?}, Op: ZigZag R-L, RotateRight P_Key: {:?}, then RotateLeft G_Key: {:?}", nodes[target].key(), nodes[parent_idx].key(), nodes[grand_parent_idx].key());
                         Self::rotate_right(nodes, parent_idx);
                         Self::rotate_left(nodes, grand_parent_idx);
                     } else { // Target is Right Child: ZigZig (Right-Right)
+                        eprintln!("[SPLAY] Target: {:?}, Op: ZigZig R-R, RotateLeft G_Key: {:?}, then RotateLeft P_Key: {:?}", nodes[target].key(), nodes[grand_parent_idx].key(), nodes[parent_idx].key());
                         Self::rotate_left(nodes, grand_parent_idx);
                         Self::rotate_left(nodes, parent_idx);
                     }
                 }
             }
+            { // Logging scope for post-rotation state
+                let nodes_for_log = self.elements.as_ref().unwrap();
+                let target_key = nodes_for_log[target].key();
+                let t_p_key = nodes_for_log[target].parent.map(|pi| nodes_for_log[pi].key());
+                let t_l_key = nodes_for_log[target].left.map(|li| nodes_for_log[li].key());
+                let t_r_key = nodes_for_log[target].right.map(|ri| nodes_for_log[ri].key());
+                eprintln!("[SPLAY] Target: {:?}({:?}), After rotation: Parent: {:?}, Left: {:?}, Right: {:?}", 
+                          target.0, target_key, t_p_key, t_l_key, t_r_key);
+            }
         }
-        self.root = Some(target); 
+        self.root = Some(target);
+        { // Logging scope
+            let nodes_for_log = self.elements.as_ref().unwrap();
+            eprintln!("[SPLAY] Finished splay. Target NodeIdx({}), Key({:?}) is now root.", target.0, nodes_for_log[target].key());
+        }
     }
     
     /// We are give a node `x` which is the root of some sub-tree and we would
     /// like to exchange it with its left child `y` which must exist. `x` can be
     /// the root of the tree in which case it has no parent.
-    fn rotate_right(nodes: &mut Nodes<K, V>, x_idx: SplayNodeIdx) {
+    fn rotate_right(nodes: &mut Nodes<K, V>, x_idx: SplayNodeIdx) { // K must be Debug for logging key()
+        // eprintln!("[ROTATE_RIGHT] Rotating right around NodeIdx({}), Key({:?})", x_idx.0, nodes[x_idx].key()); // K must be Debug
         let y_idx = nodes[x_idx].left.expect("Left child must exist for rotate_right");
+        // eprintln!("[ROTATE_RIGHT] Left child (y) is NodeIdx({}), Key({:?})", y_idx.0, nodes[y_idx].key());
         let beta_idx = nodes[y_idx].right;
+        // if let Some(b_idx) = beta_idx {
+        //     eprintln!("[ROTATE_RIGHT] y's right child (beta) is NodeIdx({}), Key({:?})", b_idx.0, nodes[b_idx].key());
+        // } else {
+        //     eprintln!("[ROTATE_RIGHT] y's right child (beta) is None");
+        // }
 
         nodes[y_idx].parent = nodes[x_idx].parent;
+        // if let Some(p_idx) = nodes[y_idx].parent {
+        //     eprintln!("[ROTATE_RIGHT] y's new parent is NodeIdx({}), Key({:?})", p_idx.0, nodes[p_idx].key());
+        // } else {
+        //     eprintln!("[ROTATE_RIGHT] y is now root");
+        // }
         if let Some(p_idx) = nodes[x_idx].parent {
             if nodes[p_idx].left == Some(x_idx) {
                 nodes[p_idx].left = Some(y_idx);
+                // eprintln!("[ROTATE_RIGHT] x's parent NodeIdx({}), Key({:?}) now points left to y", p_idx.0, nodes[p_idx].key());
             } else {
                 nodes[p_idx].right = Some(y_idx);
+                // eprintln!("[ROTATE_RIGHT] x's parent NodeIdx({}), Key({:?}) now points right to y", p_idx.0, nodes[p_idx].key());
             }
         }
         
         nodes[x_idx].left = beta_idx;
+        // eprintln!("[ROTATE_RIGHT] x's left child is now beta (NodeIdx({:?}))", beta_idx.map(|i|i.0));
         if let Some(b_idx) = beta_idx {
             nodes[b_idx].parent = Some(x_idx);
+            // eprintln!("[ROTATE_RIGHT] beta's parent is now x (NodeIdx({}), Key({:?}))", x_idx.0, nodes[x_idx].key());
         }
 
         nodes[y_idx].right = Some(x_idx);
+        // eprintln!("[ROTATE_RIGHT] y's right child is now x (NodeIdx({}), Key({:?}))", x_idx.0, nodes[x_idx].key());
         nodes[x_idx].parent = Some(y_idx);
+        // eprintln!("[ROTATE_RIGHT] x's parent is now y (NodeIdx({}), Key({:?}))", y_idx.0, nodes[y_idx].key());
     }
     
     /// We are give  a node `y` which is the root of some sub-tree and we would
     /// like to exchange it with its right child `x` which must exist. `y` can be
     /// the root of the tree in which case it has no parent.
-    fn rotate_left(nodes: &mut Nodes<K, V>, y_idx: SplayNodeIdx) {
+    fn rotate_left(nodes: &mut Nodes<K, V>, y_idx: SplayNodeIdx) { // K must be Debug for logging key()
+        // eprintln!("[ROTATE_LEFT] Rotating left around NodeIdx({}), Key({:?})", y_idx.0, nodes[y_idx].key()); // K must be Debug
         let x_idx = nodes[y_idx].right.expect("Right child must exist for rotate_left");
+        // eprintln!("[ROTATE_LEFT] Right child (x) is NodeIdx({}), Key({:?})", x_idx.0, nodes[x_idx].key());
         let beta_idx = nodes[x_idx].left;
-
+        // if let Some(b_idx) = beta_idx {
+        //     eprintln!("[ROTATE_LEFT] x's left child (beta) is NodeIdx({}), Key({:?})", b_idx.0, nodes[b_idx].key());
+        // } else {
+        //     eprintln!("[ROTATE_LEFT] x's left child (beta) is None");
+        // }
+        
         nodes[x_idx].parent = nodes[y_idx].parent;
+        // if let Some(p_idx) = nodes[x_idx].parent {
+        //     eprintln!("[ROTATE_LEFT] x's new parent is NodeIdx({}), Key({:?})", p_idx.0, nodes[p_idx].key());
+        // } else {
+        //     eprintln!("[ROTATE_LEFT] x is now root");
+        // }
         if let Some(p_idx) = nodes[y_idx].parent {
             if nodes[p_idx].left == Some(y_idx) {
                 nodes[p_idx].left = Some(x_idx);
+                // eprintln!("[ROTATE_LEFT] y's parent NodeIdx({}), Key({:?}) now points left to x", p_idx.0, nodes[p_idx].key());
             } else {
                 nodes[p_idx].right = Some(x_idx);
+                // eprintln!("[ROTATE_LEFT] y's parent NodeIdx({}), Key({:?}) now points right to x", p_idx.0, nodes[p_idx].key());
             }
         }
         
         nodes[y_idx].right = beta_idx;
+        // eprintln!("[ROTATE_LEFT] y's right child is now beta (NodeIdx({:?}))", beta_idx.map(|i|i.0));
         if let Some(b_idx) = beta_idx {
             nodes[b_idx].parent = Some(y_idx);
+            // eprintln!("[ROTATE_LEFT] beta's parent is now y (NodeIdx({}), Key({:?}))", y_idx.0, nodes[y_idx].key());
         }
 
         nodes[x_idx].left = Some(y_idx);
+        // eprintln!("[ROTATE_LEFT] x's left child is now y (NodeIdx({}), Key({:?}))", y_idx.0, nodes[y_idx].key());
         nodes[y_idx].parent = Some(x_idx);
+        // eprintln!("[ROTATE_LEFT] y's parent is now x (NodeIdx({}), Key({:?}))", x_idx.0, nodes[x_idx].key());
     }
 }
+
+// The conceptual empty impl block for K: Debug is removed as the constraint is added directly.
 
 #[cfg(test)]
 mod test_splay_tree { 
@@ -866,9 +947,13 @@ mod test_splay_tree {
         
         let deleted = tree.delete(5);
         assert_eq!(deleted.as_ref().unwrap().key(), &5);
-        assert!(tree.get(5).is_none()); 
+
+        // Perform structural checks first
         assert_eq!(tree.elements.as_ref().unwrap()[tree.root.unwrap()].key(), &3);
         assert_eq!(tree.elements.as_ref().unwrap()[tree.elements.as_ref().unwrap()[tree.root.unwrap()].right.unwrap()].key(), &10);
+
+        // Then check get after structural assertions are done
+        assert!(tree.get(5).is_none()); 
     }
 
     #[test]
@@ -882,17 +967,33 @@ mod test_splay_tree {
         tree.insert(Entry::from((12, "twelve".to_string())));
         tree.insert(Entry::from((17, "seventeen".to_string())));
 
-        assert_eq!(tree.get(10).unwrap().key(), &10); 
+        assert_eq!(tree.get(10).unwrap().key(), &10); // Initial get to splay 10 to root
         
         let deleted = tree.delete(10);
-        assert_eq!(deleted.as_ref().unwrap().key(), &10);
-        assert!(tree.get(10).is_none());
+        assert_eq!(deleted.as_ref().expect("Deleted entry should be Some").key(), &10);
 
-        let root_key = tree.elements.as_ref().unwrap()[tree.root.unwrap()].key();
-        assert_eq!(root_key, &7); 
+        // Structural assertions first
+        let elements_ref = tree.elements.as_ref().expect("Elements should exist");
+        let root_idx = tree.root.expect("Root should exist");
 
-        let root_right_child_key = tree.elements.as_ref().unwrap()[tree.elements.as_ref().unwrap()[tree.root.unwrap()].right.unwrap()].key();
-        assert_eq!(root_right_child_key, &15);
+        let root_key = elements_ref[root_idx].key();
+        assert_eq!(root_key, &7, "Root key should be 7"); 
+
+        let node_7_right_child_idx = elements_ref[root_idx].right.expect("Root (7) should have a right child (node 15)");
+        let node_7_right_child_key = elements_ref[node_7_right_child_idx].key();
+        assert_eq!(node_7_right_child_key, &15, "Root's (7) right child key should be 15");
+
+        // Check children of node 15 (which is node_7_right_child_idx)
+        let node_15_left_child_idx = elements_ref[node_7_right_child_idx].left.expect("Node 15 should have a left child (node 12)");
+        let node_15_left_child_key = elements_ref[node_15_left_child_idx].key();
+        assert_eq!(node_15_left_child_key, &12, "Node 15's left child key should be 12");
+
+        let node_15_right_child_idx = elements_ref[node_7_right_child_idx].right.expect("Node 15 should have a right child (node 17)");
+        let node_15_right_child_key = elements_ref[node_15_right_child_idx].key();
+        assert_eq!(node_15_right_child_key, &17, "Node 15's right child key should be 17");
+
+        // Then check get for the deleted key
+        assert!(tree.get(10).is_none(), "Getting deleted key 10 should return None");
     }
     
     #[test]
@@ -956,7 +1057,10 @@ mod test_splay_tree {
         assert_eq!(tree.delete(15).unwrap().key(), &15); 
         assert_eq!(tree.elements.as_ref().unwrap()[tree.root.unwrap()].key(), &8);
 
-        assert_eq!(tree.successor(8).unwrap().key(), &10);
+        let succ_key_val = tree.successor(8).unwrap().key();
+        eprintln!("[DEBUG TEST] In test_min_max_pred_succ_after_various_ops: successor(8) returned key: {:?}", succ_key_val);
+        eprintln!("[DEBUG TEST] In test_min_max_pred_succ_after_various_ops: Expected key for successor(8) is: {:?}", &10);
+        assert_eq!(succ_key_val, &10, "Successor of 8 should be 10");
         assert_eq!(tree.elements.as_ref().unwrap()[tree.root.unwrap()].key(), &10);
     }
 }
@@ -1028,7 +1132,8 @@ mod test_splay_tree_properties {
             tree.get(key).is_none()
         }
 
-        fn prop_delete_non_existent(entries_tuples: Vec<(i32, i32)>, mut non_existent_key: i32) -> TestResult {
+        fn prop_delete_non_existent(entries_tuples: Vec<(i32, i32)>, non_existent_key: i32) -> TestResult {
+            let mut non_existent_key = non_existent_key; // Added line
             let mut tree: SplayTree<i32, i32> = SplayTree::new();
             let mut keys_present = BTreeSet::new();
             for (k, v) in entries_tuples {
