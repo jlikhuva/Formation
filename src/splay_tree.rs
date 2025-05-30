@@ -437,7 +437,7 @@ impl<K: Ord + Clone + std::fmt::Debug, V: Clone> SplayTree<K, V> { // Added K: s
         let mut current_idx = self.root.unwrap();
         // parent_idx_for_search_phase will hold the parent of current_idx during search,
         // or the node itself if the key is found, or the parent for a new node.
-        let mut parent_idx_for_search_phase: SplayNodeIdx; 
+        let mut parent_idx_for_search_phase: SplayNodeIdx;
 
         // Phase 1: Find insertion point or existing node.
         // This loop only reads node structure for navigation.
@@ -678,7 +678,7 @@ impl<K: Ord, V> SplayTree<K, V> {
 /// Implementation of the bottom up splay operation
 impl<K: Ord + std::fmt::Debug, V> SplayTree<K, V> { // Added K: std::fmt::Debug
     /// Moves the target node to the root of the tree using a series of rotations.
-    fn splay(&mut self, target: SplayNodeIdx) { 
+    fn splay(&mut self, target: SplayNodeIdx) {
         if self.elements.is_none() { return; }
         let elements_ref_check = self.elements.as_ref().unwrap();
         if elements_ref_check.is_empty() { return; } 
@@ -717,10 +717,10 @@ impl<K: Ord + std::fmt::Debug, V> SplayTree<K, V> { // Added K: std::fmt::Debug
                 let parent_key = nodes_for_log[parent_idx].key();
                 if let Some(gp_idx) = grand_parent_idx_opt {
                     let gp_key = nodes_for_log[gp_idx].key();
-                    eprintln!("[SPLAY] Pre-rotation: Target: {:?}({:?}), Parent: {:?}({:?}), Grandparent: {:?}({:?})", 
+                    eprintln!("[SPLAY] Pre-rotation: Target: {:?}({:?}), Parent: {:?}({:?}), Grandparent: {:?}({:?})",
                               target.0, target_key, parent_idx.0, parent_key, gp_idx.0, gp_key);
                 } else {
-                    eprintln!("[SPLAY] Pre-rotation: Target: {:?}({:?}), Parent: {:?}({:?}), No Grandparent (Parent is root)", 
+                    eprintln!("[SPLAY] Pre-rotation: Target: {:?}({:?}), Parent: {:?}({:?}), No Grandparent (Parent is root)",
                               target.0, target_key, parent_idx.0, parent_key);
                 }
             }
@@ -767,7 +767,7 @@ impl<K: Ord + std::fmt::Debug, V> SplayTree<K, V> { // Added K: std::fmt::Debug
                 let t_p_key = nodes_for_log[target].parent.map(|pi| nodes_for_log[pi].key());
                 let t_l_key = nodes_for_log[target].left.map(|li| nodes_for_log[li].key());
                 let t_r_key = nodes_for_log[target].right.map(|ri| nodes_for_log[ri].key());
-                eprintln!("[SPLAY] Target: {:?}({:?}), After rotation: Parent: {:?}, Left: {:?}, Right: {:?}", 
+                eprintln!("[SPLAY] Target: {:?}({:?}), After rotation: Parent: {:?}, Left: {:?}, Right: {:?}",
                           target.0, target_key, t_p_key, t_l_key, t_r_key);
             }
         }
@@ -834,7 +834,7 @@ impl<K: Ord + std::fmt::Debug, V> SplayTree<K, V> { // Added K: std::fmt::Debug
         // } else {
         //     eprintln!("[ROTATE_LEFT] x's left child (beta) is None");
         // }
-        
+
         nodes[x_idx].parent = nodes[y_idx].parent;
         // if let Some(p_idx) = nodes[x_idx].parent {
         //     eprintln!("[ROTATE_LEFT] x's new parent is NodeIdx({}), Key({:?})", p_idx.0, nodes[p_idx].key());
@@ -953,7 +953,7 @@ mod test_splay_tree {
         assert_eq!(tree.elements.as_ref().unwrap()[tree.elements.as_ref().unwrap()[tree.root.unwrap()].right.unwrap()].key(), &10);
 
         // Then check get after structural assertions are done
-        assert!(tree.get(5).is_none()); 
+        assert!(tree.get(5).is_none());
     }
 
     #[test]
@@ -977,7 +977,7 @@ mod test_splay_tree {
         let root_idx = tree.root.expect("Root should exist");
 
         let root_key = elements_ref[root_idx].key();
-        assert_eq!(root_key, &7, "Root key should be 7"); 
+        assert_eq!(root_key, &7, "Root key should be 7");
 
         let node_7_right_child_idx = elements_ref[root_idx].right.expect("Root (7) should have a right child (node 15)");
         let node_7_right_child_key = elements_ref[node_7_right_child_idx].key();
