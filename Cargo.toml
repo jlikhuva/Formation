@@ -3,3 +3,7 @@ name = "splay_tree"
 version = "0.1.0"
 authors = ["jlikhuva <jlikhuva@alumni.stanford.edu>"]
 edition = "2018"
+
+[dependencies]
+quickcheck = "1.0"
+quickcheck_macros = "1.0"
